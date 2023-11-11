@@ -9,6 +9,10 @@ import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 
 import com.ctre.phoenix.sensors.Pigeon2;
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.util.HolonomicPathFollowerConfig;
+import com.pathplanner.lib.util.PIDConstants;
+import com.pathplanner.lib.util.ReplanningConfig;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -42,6 +46,21 @@ public class Swerve extends SubsystemBase {
         resetModulesToAbsolute();
 
         swerveOdometry = new SwerveDriveOdometry(Constants.Swerve.swerveKinematics, getYaw(), getModulePositions());
+
+        AutoBuilder.configureHolonomic(
+        this::getPose, // Robot pose supplier
+        this::resetPose, // Method to reset odometry (will be called if your auto has a starting pose)
+        this::getRobotRelativeSpeeds, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+        this::driveRobotRelative, // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+        new HolonomicPathFollowerConfig( // HolonomicPathFollowerConfig, this should likely live in your Constants class
+            new PIDConstants(5.0, 0.0, 0.0), // Translation PID constants TODO check Translation PID's
+            new PIDConstants(5.0, 0.0, 0.0), // Rotation PID constants    TODO check Rotation PID's
+            4.5, // Max module speed, in m/s
+            0.4, // Drive base radius in meters. Distance from robot center to furthest module.
+            new ReplanningConfig() // Default path replanning config. See the API for the options here
+        ),
+        this // Reference to this subsystem to set requirements
+    );
     }
 
     public void drive(Translation2d translation, double rotation, boolean fieldRelative, boolean isOpenLoop) {
@@ -65,6 +84,16 @@ public class Swerve extends SubsystemBase {
         }
     }    
 
+    public void driveRobotRelative(ChassisSpeeds speeds){
+        SwerveModuleState[] moduleStates = Constants.Swerve.swerveKinematics.toSwerveModuleStates(speeds);
+
+        SwerveDriveKinematics.desaturateWheelSpeeds(moduleStates, Constants.Swerve.maxSpeed);
+
+        for(SwerveModule mod : mSwerveMods){
+            mod.setDesiredState(moduleStates[mod.moduleNumber], false);
+        }
+    }
+
     /* Used by SwerveControllerCommand in Auto */
     public void setModuleStates(SwerveModuleState[] desiredStates) {
         SwerveDriveKinematics.desaturateWheelSpeeds(desiredStates, Constants.Swerve.maxSpeed);
@@ -76,6 +105,10 @@ public class Swerve extends SubsystemBase {
 
     public Pose2d getPose() {
         return swerveOdometry.getPoseMeters();
+    }
+
+    public void resetPose(Pose2d pose){
+        swerveOdometry.resetPosition(pose.getRotation(), getModulePositions(), pose);
     }
 
     public void resetOdometry(Pose2d pose) {
@@ -97,6 +130,13 @@ public class Swerve extends SubsystemBase {
         }
         return positions;
     }
+
+    public ChassisSpeeds getRobotRelativeSpeeds(){
+        // TODO Check this if it doesn't do auto right
+        return Constants.Swerve.swerveKinematics.toChassisSpeeds(getModuleStates()); 
+    }
+
+    // TODO Check if this actually does its job since its an array
 
     public void zeroGyro(){
         gyro.setYaw(0);

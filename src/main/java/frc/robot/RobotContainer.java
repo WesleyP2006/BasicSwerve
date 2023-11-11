@@ -1,8 +1,12 @@
 package frc.robot;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.button.JoystickButton;
@@ -30,6 +34,9 @@ public class RobotContainer {
     private final JoystickButton zeroGyro = new JoystickButton(driver, XboxController.Button.kY.value);
     private final JoystickButton robotCentric = new JoystickButton(driver, XboxController.Button.kLeftBumper.value);
 
+    /* Choosing Auto */
+    private final SendableChooser<Command> autoChooser;
+
     /* Subsystems */
     private final Swerve s_Swerve = new Swerve();
 
@@ -48,6 +55,11 @@ public class RobotContainer {
 
         // Configure the button bindings
         configureButtonBindings();
+
+         autoChooser = AutoBuilder.buildAutoChooser("My Default Auto");
+         autoChooser.addOption(null, getAutonomousCommand());
+
+        SmartDashboard.putData("Auto Chooser", autoChooser);
     }
 
     /**
@@ -68,6 +80,7 @@ public class RobotContainer {
      */
     public Command getAutonomousCommand() {
         // An ExampleCommand will run in autonomous
-        return new exampleAuto(s_Swerve);
+        // return new exampleAuto(s_Swerve);
+        return autoChooser.getSelected();
     }
 }
